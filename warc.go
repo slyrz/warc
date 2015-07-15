@@ -46,6 +46,7 @@ type Reader struct {
 	source io.ReadCloser
 	reader *bufio.Reader
 	record *Record
+	buffer []byte
 }
 
 // Record represents a WARC record.
@@ -145,6 +146,7 @@ func NewReader(reader io.Reader, mode Mode) (*Reader, error) {
 		Mode:   mode,
 		source: source,
 		reader: bufio.NewReader(source),
+		buffer: make([]byte, 4096),
 	}, nil
 }
 
@@ -235,9 +237,8 @@ func (r *Reader) seekRecord() error {
 	// user actually consumed. So we have to make sure all content gets skipped
 	// here.
 	if r.Mode == SequentialMode {
-		buffer := make([]byte, 4096)
 		for {
-			n, err := r.record.Content.Read(buffer)
+			n, err := r.record.Content.Read(r.buffer)
 			if n == 0 || err != nil {
 				break
 			}
