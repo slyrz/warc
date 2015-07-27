@@ -61,7 +61,6 @@ type Writer struct {
 type Record struct {
 	Header  map[string]string
 	Content io.Reader
-	Length  int
 }
 
 const (
@@ -240,7 +239,6 @@ func (r *Reader) ReadRecord() (*Record, error) {
 	r.record = &Record{
 		Header:  header,
 		Content: content,
-		Length:  length,
 	}
 	return r.record, nil
 }

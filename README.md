@@ -27,7 +27,7 @@ for {
 	if err != nil {
 		break
 	}
-	fmt.Printf("Record of size %d:\n", record.Length)
+	fmt.Println("Record:")
 	for key, value := range record.Header {
 		fmt.Printf("\t%v = %v\n", key, value)
 	}
