@@ -1,4 +1,4 @@
-// package warc provides primitives for reading WARC files.
+// package warc provides primitives for reading and writing WARC files.
 package warc
 
 import (
@@ -47,6 +47,12 @@ type Reader struct {
 	reader *bufio.Reader
 	record *Record
 	buffer []byte
+}
+
+// Writer writes WARC records to WARC files.
+type Writer struct {
+	// Unexported fields.
+	target io.Writer
 }
 
 // Record represents a WARC record.
@@ -134,6 +140,13 @@ func splitKeyValue(line string) (string, string) {
 		return "", ""
 	}
 	return strings.ToLower(parts[0]), strings.TrimSpace(parts[1])
+}
+
+// NewRecord creates a new WARC record.
+func NewRecord() *Record {
+	return &Record{
+		Header: make(map[string]string),
+	}
 }
 
 // NewReader creates a new WARC reader.
@@ -255,6 +268,41 @@ func (r *Reader) seekRecord() error {
 		if line != "" {
 			return fmt.Errorf("expected empty line, got %q", line)
 		}
+	}
+	return nil
+}
+
+// NewWriter creates a new WARC writer.
+func NewWriter(writer io.Writer) *Writer {
+	return &Writer{writer}
+}
+
+// WriteRecord writes a record to the underlying WARC file.
+func (w *Writer) WriteRecord(r *Record) error {
+	data, err := ioutil.ReadAll(r.Content)
+	if err != nil {
+		return err
+	}
+	r.Header["content-length"] = strconv.Itoa(len(data))
+
+	// A record consists of a version string, the record header followed by a
+	// record content block and two newlines:
+	// 	Version CLRF
+	// 	Header-Key: Header-Value CLRF
+	// 	CLRF
+	// 	Content
+	// 	CLRF
+	// 	CLRF
+	if _, err := fmt.Fprintf(w.target, "%s\r\n", "WARC/1.0"); err != nil {
+		return err
+	}
+	for key, value := range r.Header {
+		if _, err := fmt.Fprintf(w.target, "%s: %s\r\n", strings.Title(key), value); err != nil {
+			return err
+		}
+	}
+	if _, err := fmt.Fprintf(w.target, "\r\n%s\r\n\r\n", data); err != nil {
+		return err
 	}
 	return nil
 }
