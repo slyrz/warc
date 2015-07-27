@@ -47,7 +47,7 @@ record.Header["content-type"] = "plain/text"
 // Assign the content to the record.
 record.Content = strings.NewReader("Hello, World!")
 // Write the record to os.Stdout.
-if err := writer.WriteRecord(record); err != nil {
+if _, err := writer.WriteRecord(record); err != nil {
 	panic(err)
 }
 ```

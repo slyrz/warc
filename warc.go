@@ -286,12 +286,21 @@ func NewWriter(writer io.Writer) *Writer {
 }
 
 // WriteRecord writes a record to the underlying WARC file.
-func (w *Writer) WriteRecord(r *Record) error {
+func (w *Writer) WriteRecord(r *Record) (int, error) {
 	data, err := ioutil.ReadAll(r.Content)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	r.Header["content-length"] = strconv.Itoa(len(data))
+
+	total := 0
+	// write is a helper function to count the total number of
+	// written bytes to w.target.
+	write := func(format string, args ...interface{}) error {
+		written, err := fmt.Fprintf(w.target, format, args...)
+		total += written
+		return err
+	}
 
 	// A record consists of a version string, the record header followed by a
 	// record content block and two newlines:
@@ -301,16 +310,16 @@ func (w *Writer) WriteRecord(r *Record) error {
 	// 	Content
 	// 	CLRF
 	// 	CLRF
-	if _, err := fmt.Fprintf(w.target, "%s\r\n", "WARC/1.0"); err != nil {
-		return err
+	if err := write("%s\r\n", "WARC/1.0"); err != nil {
+		return total, err
 	}
 	for key, value := range r.Header {
-		if _, err := fmt.Fprintf(w.target, "%s: %s\r\n", strings.Title(key), value); err != nil {
-			return err
+		if err := write("%s: %s\r\n", strings.Title(key), value); err != nil {
+			return total, err
 		}
 	}
-	if _, err := fmt.Fprintf(w.target, "\r\n%s\r\n\r\n", data); err != nil {
-		return err
+	if err := write("\r\n%s\r\n\r\n", data); err != nil {
+		return total, err
 	}
-	return nil
+	return total, nil
 }
