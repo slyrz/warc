@@ -36,6 +36,8 @@ const (
 	// returned Records. This mode copies the Record's content into
 	// separate memory, thus bears memory overhead.
 	AsynchronousMode
+	// DefaultMode defines the reading mode used in NewReader().
+	DefaultMode = AsynchronousMode
 )
 
 // Reader reads WARC records from WARC files.
@@ -150,7 +152,13 @@ func NewRecord() *Record {
 }
 
 // NewReader creates a new WARC reader.
-func NewReader(reader io.Reader, mode Mode) (*Reader, error) {
+func NewReader(reader io.Reader) (*Reader, error) {
+	return NewReaderMode(reader, DefaultMode)
+}
+
+// NewReaderMode is like NewReader, but specifies the mode instead of
+// assuming DefaultMode.
+func NewReaderMode(reader io.Reader, mode Mode) (*Reader, error) {
 	source, err := decompress(reader)
 	if err != nil {
 		return nil, err

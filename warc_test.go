@@ -20,9 +20,9 @@ func testFileHash(t *testing.T, path string, mode warc.Mode) {
 	}
 	defer file.Close()
 
-	reader, err := warc.NewReader(file, mode)
+	reader, err := warc.NewReaderMode(file, mode)
 	if err != nil {
-		t.Fatalf("warc.NewReader failed for %q: %v", path, err)
+		t.Fatalf("warc.NewReaderMode failed for %q: %v", path, err)
 	}
 	defer reader.Close()
 
@@ -52,9 +52,9 @@ func testFileScan(t *testing.T, path string, mode warc.Mode) {
 	}
 	defer file.Close()
 
-	reader, err := warc.NewReader(file, mode)
+	reader, err := warc.NewReaderMode(file, mode)
 	if err != nil {
-		t.Fatalf("warc.NewReader failed for %q: %v", path, err)
+		t.Fatalf("warc.NewReaderMode failed for %q: %v", path, err)
 	}
 	defer reader.Close()
 
@@ -86,7 +86,7 @@ func TestReader(t *testing.T) {
 
 func ExampleReader() {
 	// Read WARC file from os.Stdin.
-	reader, err := warc.NewReader(os.Stdin, warc.SequentialMode)
+	reader, err := warc.NewReader(os.Stdin)
 	if err != nil {
 		panic(err)
 	}
