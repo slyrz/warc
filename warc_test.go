@@ -7,6 +7,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"strings"
 	"testing"
 )
 
@@ -80,5 +81,41 @@ func TestReader(t *testing.T) {
 		testFileHash(t, path, warc.AsynchronousMode)
 		testFileScan(t, path, warc.SequentialMode)
 		testFileScan(t, path, warc.AsynchronousMode)
+	}
+}
+
+func ExampleReader() {
+	// Read WARC file from os.Stdin.
+	reader, err := warc.NewReader(os.Stdin, warc.SequentialMode)
+	if err != nil {
+		panic(err)
+	}
+	defer reader.Close()
+	// Iterate over records.
+	for {
+		record, err := reader.ReadRecord()
+		if err != nil {
+			break
+		}
+		fmt.Printf("Record of size %d:\n", record.Length)
+		for key, value := range record.Header {
+			fmt.Printf("\t%v = %v\n", key, value)
+		}
+	}
+}
+
+func ExampleWriter() {
+	// Write WARC records to os.Stdout.
+	writer := warc.NewWriter(os.Stdout)
+	// Create a new WARC record.
+	record := warc.NewRecord()
+	// Store metadata in the header. Key should be all lowercase.
+	record.Header["warc-type"] = "resource"
+	record.Header["content-type"] = "plain/text"
+	// Assign the content to the record.
+	record.Content = strings.NewReader("Hello, World!")
+	// Write the record to os.Stdout.
+	if err := writer.WriteRecord(record); err != nil {
+		panic(err)
 	}
 }
