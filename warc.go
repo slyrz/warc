@@ -42,9 +42,8 @@ const (
 
 // Reader reads WARC records from WARC files.
 type Reader struct {
-	Mode Mode
-
 	// Unexported fields.
+	mode   Mode
 	source io.ReadCloser
 	reader *bufio.Reader
 	record *Record
@@ -163,7 +162,7 @@ func NewReaderMode(reader io.Reader, mode Mode) (*Reader, error) {
 		return nil, err
 	}
 	return &Reader{
-		Mode:   mode,
+		mode:   mode,
 		source: source,
 		reader: bufio.NewReader(source),
 		buffer: make([]byte, 4096),
@@ -232,7 +231,7 @@ func (r *Reader) ReadRecord() (*Record, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse field Content-Length: %v", err)
 	}
-	content, err := sliceReader(r.reader, length, r.Mode == AsynchronousMode)
+	content, err := sliceReader(r.reader, length, r.mode == AsynchronousMode)
 	if err != nil {
 		return nil, err
 	}
@@ -255,7 +254,7 @@ func (r *Reader) seekRecord() error {
 	// anywhere inside the active record's block - depending on how much the
 	// user actually consumed. So we have to make sure all content gets skipped
 	// here.
-	if r.Mode == SequentialMode {
+	if r.mode == SequentialMode {
 		for {
 			n, err := r.record.Content.Read(r.buffer)
 			if n == 0 || err != nil {
@@ -276,6 +275,11 @@ func (r *Reader) seekRecord() error {
 		}
 	}
 	return nil
+}
+
+// Mode returns the reader mode.
+func (r *Reader) Mode() Mode {
+	return r.mode
 }
 
 // NewWriter creates a new WARC writer.
