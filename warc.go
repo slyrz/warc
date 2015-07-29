@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // Mode defines the way Reader will generate Records.
@@ -56,9 +57,14 @@ type Writer struct {
 	target io.Writer
 }
 
+// Header provides information about the WARC record. It stores WARC record
+// field names and their values. Since WARC field names are case-insensitive,
+// the Header methods are case-insensitive as well.
+type Header map[string]string
+
 // Record represents a WARC record.
 type Record struct {
-	Header  map[string]string
+	Header  Header
 	Content io.Reader
 }
 
@@ -139,7 +145,28 @@ func splitKeyValue(line string) (string, string) {
 	if len(parts) != 2 {
 		return "", ""
 	}
-	return strings.ToLower(parts[0]), strings.TrimSpace(parts[1])
+	return parts[0], strings.TrimSpace(parts[1])
+}
+
+// NewRecord creates a new WARC header.
+func NewHeader() Header {
+	return make(map[string]string)
+}
+
+// Set sets the header field associated with key to value.
+func (h Header) Set(key, value string) {
+	h[strings.ToLower(key)] = value
+}
+
+// Get returns the value associated with the given key.
+// If there is no value associated with the key, Get returns "".
+func (h Header) Get(key string) string {
+	return h[strings.ToLower(key)]
+}
+
+// Del deletes the value associated with key.
+func (h Header) Del(key string) {
+	delete(h, strings.ToLower(key))
 }
 
 // NewRecord creates a new WARC record.
@@ -213,7 +240,7 @@ func (r *Reader) ReadRecord() (*Record, error) {
 		return nil, err
 	}
 	// Parse the record header.
-	header := make(map[string]string)
+	header := NewHeader()
 	for {
 		line, err := r.readLine()
 		if err != nil {
@@ -223,7 +250,7 @@ func (r *Reader) ReadRecord() (*Record, error) {
 			break
 		}
 		if key, value := splitKeyValue(line); key != "" {
-			header[key] = value
+			header.Set(key, value)
 		}
 	}
 	// Determine the content length and then retrieve the record content.
@@ -293,7 +320,18 @@ func (w *Writer) WriteRecord(r *Record) (int, error) {
 	if err != nil {
 		return 0, err
 	}
+
+	// Content-Length is the number of octets in the content. If no content is
+	// present, a value of '0' (zero) shall be used.
 	r.Header["content-length"] = strconv.Itoa(len(data))
+	// If the values for WARC-Date and WARC-Type are missing, add them
+	// because the standard says they're mandatory.
+	if r.Header["warc-date"] == "" {
+		r.Header["warc-date"] = time.Now().Format(time.RFC3339)
+	}
+	if r.Header["warc-type"] == "" {
+		r.Header["warc-type"] = "resource"
+	}
 
 	total := 0
 	// write is a helper function to count the total number of
