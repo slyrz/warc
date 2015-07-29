@@ -66,7 +66,7 @@ func testFileScan(t *testing.T, path string, mode warc.Mode) {
 		}
 		total++
 	}
-	if total != 50 {
+	if total != 10 {
 		t.Fatalf("expected 50 records, got %v", total)
 	}
 }
