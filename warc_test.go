@@ -1,6 +1,7 @@
 package warc_test
 
 import (
+	"bytes"
 	"crypto/sha1"
 	"fmt"
 	"github.com/slyrz/warc"
@@ -81,6 +82,77 @@ func TestReader(t *testing.T) {
 		testFileHash(t, path, warc.AsynchronousMode)
 		testFileScan(t, path, warc.SequentialMode)
 		testFileScan(t, path, warc.AsynchronousMode)
+	}
+}
+
+var testRecords = []struct {
+	Header  map[string]string
+	Content []byte
+}{
+	{
+		Header: map[string]string{
+			"foo": "bar",
+			"baz": "qux",
+		},
+		Content: []byte("Hello, World!"),
+	},
+	{
+		Header: map[string]string{
+			"some-key":    "some value",
+			"another-key": "another value",
+		},
+		Content: []byte("Multiline\nText\n"),
+	},
+	{
+		Header: map[string]string{
+			"key 1": "value 1",
+			"key 2": "value 2",
+			"key 3": "value 3",
+			"key 4": "value 4",
+			"key 5": "value 5",
+		},
+		Content: []byte{
+			0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
+		},
+	},
+}
+
+func TestWriteRead(t *testing.T) {
+	buffer := new(bytes.Buffer)
+
+	writer := warc.NewWriter(buffer)
+	for i, testRecord := range testRecords {
+		t.Logf("writing record %d", i)
+		record := warc.NewRecord()
+		record.Header = testRecord.Header
+		record.Content = bytes.NewReader(testRecord.Content)
+		if _, err := writer.WriteRecord(record); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	reader, err := warc.NewReader(buffer)
+	if err != nil {
+		t.Fatalf("failed to create reader: %v", err)
+	}
+	for i, testRecord := range testRecords {
+		t.Logf("reading record %d", i)
+		record, err := reader.ReadRecord()
+		if err != nil {
+			t.Fatalf("expected record, got %v", err)
+		}
+		for key, val := range testRecord.Header {
+			if record.Header[key] != val {
+				t.Errorf("expected %q = %q, got %q", key, val, record.Header[key])
+			}
+		}
+		content, err := ioutil.ReadAll(record.Content)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(content) != string(testRecord.Content) {
+			t.Errorf("expected %s = %s", content, testRecord.Content)
+		}
 	}
 }
 
