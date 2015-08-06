@@ -157,13 +157,12 @@ func TestWriteRead(t *testing.T) {
 }
 
 func ExampleReader() {
-	// Read WARC file from os.Stdin.
 	reader, err := warc.NewReader(os.Stdin)
 	if err != nil {
 		panic(err)
 	}
 	defer reader.Close()
-	// Iterate over records.
+
 	for {
 		record, err := reader.ReadRecord()
 		if err != nil {
@@ -171,22 +170,17 @@ func ExampleReader() {
 		}
 		fmt.Println("Record:")
 		for key, value := range record.Header {
-			fmt.Printf("\t%v = %v\n", key, value)
+			fmt.Printf("%v = %v\n", key, value)
 		}
 	}
 }
 
 func ExampleWriter() {
-	// Write WARC records to os.Stdout.
 	writer := warc.NewWriter(os.Stdout)
-	// Create a new WARC record.
 	record := warc.NewRecord()
-	// Store metadata in the header. Key should be all lowercase.
-	record.Header["warc-type"] = "resource"
-	record.Header["content-type"] = "plain/text"
-	// Assign the content to the record.
+	record.Header.Set("warc-type", "resource")
+	record.Header.Set("content-type", "plain/text")
 	record.Content = strings.NewReader("Hello, World!")
-	// Write the record to os.Stdout.
 	if _, err := writer.WriteRecord(record); err != nil {
 		panic(err)
 	}
