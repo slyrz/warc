@@ -16,6 +16,7 @@ import (
 
 // Mode defines the way Reader will generate Records.
 type Mode int
+type CompressionType int
 
 func (m Mode) String() string {
 	switch m {
@@ -23,6 +24,18 @@ func (m Mode) String() string {
 		return "SequentialMode"
 	case AsynchronousMode:
 		return "AsynchronousMode"
+	}
+	return ""
+}
+
+func (c CompressionType) String() string {
+	switch c {
+	case CompressionNone:
+		return "CompressionNone"
+	case CompressionBZIP:
+		return "CompressionGZIP"
+	case CompressionGZIP:
+		return "CompressionGZIP"
 	}
 	return ""
 }
@@ -45,6 +58,7 @@ const (
 type Reader struct {
 	// Unexported fields.
 	mode   Mode
+	compression CompressionType
 	source io.ReadCloser
 	reader *bufio.Reader
 	record *Record
@@ -69,55 +83,55 @@ type Record struct {
 }
 
 const (
-	compressionNone = iota
-	compressionBZIP
-	compressionGZIP
+	CompressionNone CompressionType = iota
+	CompressionBZIP
+	CompressionGZIP
 )
 
 // guessCompression returns the compression type of a data stream by matching
 // the first two bytes with the magic numbers of compression formats.
-func guessCompression(b *bufio.Reader) (int, error) {
+func guessCompression(b *bufio.Reader) (CompressionType, error) {
 	magic, err := b.Peek(2)
 	if err != nil {
 		if err == io.EOF {
 			err = nil
 		}
-		return compressionNone, err
+		return CompressionNone, err
 	}
 	switch {
 	case magic[0] == 0x42 && magic[1] == 0x5a:
-		return compressionBZIP, nil
+		return CompressionBZIP, nil
 	case magic[0] == 0x1f && magic[1] == 0x8b:
-		return compressionGZIP, nil
+		return CompressionGZIP, nil
 	}
-	return compressionNone, nil
+	return CompressionNone, nil
 }
 
 // decompress automatically decompresses data streams and makes sure the result
 // obeys the io.ReadCloser interface. This way callers don't need to check
 // whether the underlying reader has a Close() function or not, they just call
 // defer Close() on the result.
-func decompress(r io.Reader) (res io.ReadCloser, err error) {
+func decompress(r io.Reader) (compr CompressionType, res io.ReadCloser, err error) {
 	// Create a buffered reader to peek the stream's magic number.
 	dataReader := bufio.NewReader(r)
-	compr, err := guessCompression(dataReader)
+	compr, err = guessCompression(dataReader)
 	if err != nil {
-		return nil, err
+		return CompressionNone, nil, err
 	}
 	switch compr {
-	case compressionGZIP:
+	case CompressionGZIP:
 		gzipReader, err := gzip.NewReader(dataReader)
 		if err != nil {
-			return nil, err
+			return CompressionNone, nil, err
 		}
 		res = gzipReader
-	case compressionBZIP:
+	case CompressionBZIP:
 		bzipReader := bzip2.NewReader(dataReader)
 		res = ioutil.NopCloser(bzipReader)
-	case compressionNone:
+	case CompressionNone:
 		res = ioutil.NopCloser(dataReader)
 	}
-	return res, err
+	return compr, res, err
 }
 
 // sliceReader returns a new io.Reader for the next n bytes in source.
@@ -184,12 +198,13 @@ func NewReader(reader io.Reader) (*Reader, error) {
 // NewReaderMode is like NewReader, but specifies the mode instead of
 // assuming DefaultMode.
 func NewReaderMode(reader io.Reader, mode Mode) (*Reader, error) {
-	source, err := decompress(reader)
+	compr, source, err := decompress(reader)
 	if err != nil {
 		return nil, err
 	}
 	return &Reader{
 		mode:   mode,
+		compression: compr,
 		source: source,
 		reader: bufio.NewReader(source),
 		buffer: make([]byte, 4096),
@@ -307,6 +322,10 @@ func (r *Reader) seekRecord() error {
 // Mode returns the reader mode.
 func (r *Reader) Mode() Mode {
 	return r.mode
+}
+
+func (r *Reader) Compression() CompressionType {
+	return r.compression
 }
 
 // NewWriter creates a new WARC writer.
